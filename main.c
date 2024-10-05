@@ -110,6 +110,7 @@ ISR(RTC_PIT_vect)
 		if(enterSleepMode > 15) {			// enter sleep mode
 			enterSleepMode++;				// Debounce the release of the button
 			if(enterSleepMode > 20) {
+				gCurrentPatternNumber = ((gCurrentPatternNumber - 1) + ARRAY_SIZE( gPatterns)) % ARRAY_SIZE( gPatterns);
 				sleep_device();
 			}
 		}
@@ -145,7 +146,7 @@ void push_button_action(void)
 void sleep_device(void)
 {
 	RTC.PITINTCTRL &= ~(RTC_PITEN_bm);		// stop the PIT in sleep mode to conserve energy
-	gCurrentPatternNumber = ((gCurrentPatternNumber - 1) + ARRAY_SIZE( gPatterns)) % ARRAY_SIZE( gPatterns);
+	while (RTC.PITSTATUS);				// Wait for all registers to be synchronized
 	enterSleepMode = 2;
 	buttonTimePressed = 0;
 	PORTA.PIN2CTRL = PORT_PULLUPEN_bm | PORT_ISC_BOTHEDGES_gc;
@@ -191,6 +192,10 @@ int main(void)
 	set_sleep_mode(SLEEP_MODE_STANDBY);		// Set sleep mode to STANDBY mode
 	sleep_enable();
 	sei();
+	eeprom_busy_wait();
+	gCurrentPatternNumber = eeprom_read_byte((uint8_t*)(&USERROW.USERROW1 - USERROW_OFFSET));
+	if(gCurrentPatternNumber > ARRAY_SIZE( gPatterns)) gCurrentPatternNumber = 0;
+	RTC_init();
 	eeprom_busy_wait();
 	if(eeprom_read_byte((uint8_t*)(&USERROW.USERROW0 - USERROW_OFFSET))) sleep_device();
 	else wake_device();
